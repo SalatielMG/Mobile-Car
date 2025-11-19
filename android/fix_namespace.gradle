@@ -1,0 +1,13 @@
+// Configuración para agregar namespace a plugins sin él
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            // Agregar namespace a flutter_bluetooth_serial si no lo tiene
+            if (project.name == 'flutter_bluetooth_serial') {
+                project.android {
+                    namespace = 'io.github.edufolly.flutterbluetoothserial'
+                }
+            }
+        }
+    }
+}
