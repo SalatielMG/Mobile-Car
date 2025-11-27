@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
         return MaterialApp(
-          title: 'Control Remoto',
+          title: 'Controlador Carrito',
           debugShowCheckedModeBanner: false,
           themeMode: provider.themeMode,
           theme: ThemeData(
