@@ -4,77 +4,117 @@ import '../providers/app_provider.dart';
 import '../widgets/bluetooth_devices_modal.dart';
 import '../widgets/navigation_controls.dart';
 import '../widgets/gyroscope_controls.dart';
+import '../widgets/info_modal.dart';
 
 /// Pantalla principal de la aplicación
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+
+  static const List<Widget> _widgetOptions = <Widget>[
+    // Tab Manual
+    Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _ConnectionStatus(),
+          SizedBox(height: 32),
+          NavigationControls(),
+        ],
+      ),
+    ),
+    // Tab Giroscopio
+    Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _ConnectionStatus(),
+          SizedBox(height: 32),
+          GyroscopeControls(),
+        ],
+      ),
+    ),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void _showInfoModal(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return const InfoModal();
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Controlador Carrito'),
-          centerTitle: true,
-          leading: Consumer<AppProvider>(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Controlador Carrito'),
+        centerTitle: true,
+        leading: Consumer<AppProvider>(
+          builder: (context, provider, _) {
+            return IconButton(
+              icon: Icon(
+                provider.isConnected ? Icons.bluetooth_connected : Icons.bluetooth,
+                color: provider.isConnected ? Colors.green : null,
+              ),
+              onPressed: () => _showBluetoothDevices(context),
+            );
+          },
+        ),
+        actions: [
+          Consumer<AppProvider>(
             builder: (context, provider, _) {
               return IconButton(
                 icon: Icon(
-                  provider.isConnected ? Icons.bluetooth_connected : Icons.bluetooth,
-                  color: provider.isConnected ? Colors.green : null,
+                  provider.themeMode == ThemeMode.light
+                      ? Icons.dark_mode
+                      : Icons.light_mode,
                 ),
-                onPressed: () => _showBluetoothDevices(context),
+                onPressed: provider.toggleTheme,
               );
             },
           ),
-          actions: [
-            Consumer<AppProvider>(
-              builder: (context, provider, _) {
-                return IconButton(
-                  icon: Icon(
-                    provider.themeMode == ThemeMode.light
-                        ? Icons.dark_mode
-                        : Icons.light_mode,
-                  ),
-                  onPressed: provider.toggleTheme,
-                );
-              },
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48.0),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: IconButton.filledTonal(
+              onPressed: () => _showInfoModal(context),
+              icon: const Icon(Icons.info_outline),
+              tooltip: 'Información',
             ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Manual', icon: Icon(Icons.touch_app)),
-              Tab(text: 'Giroscopio', icon: Icon(Icons.screen_rotation)),
-            ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            // Tab Manual
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const _ConnectionStatus(),
-                  const SizedBox(height: 32),
-                  const NavigationControls(),
-                ],
-              ),
-            ),
-            // Tab Giroscopio
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const _ConnectionStatus(),
-                  const SizedBox(height: 32),
-                  const GyroscopeControls(),
-                ],
-              ),
-            ),
-          ],
-        ),
+      ),
+      body: _widgetOptions.elementAt(_selectedIndex),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.touch_app),
+            label: 'Manual',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.screen_rotation),
+            label: 'Giroscopio',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        onTap: _onItemTapped,
       ),
     );
   }

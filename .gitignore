@@ -47,5 +47,8 @@ app.*.map.json
 # FVM Version Cache
 .fvm/
 
-/assets/
+# Environment variables
 .env
+
+# Assets
+assets/
