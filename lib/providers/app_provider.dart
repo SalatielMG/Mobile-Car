@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/bluetooth_device_model.dart';
 import '../services/bluetooth_service.dart';
 
@@ -19,6 +23,27 @@ class AppProvider extends ChangeNotifier {
 
   bool get isConnected => _connectedDevice != null;
 
+  // Estado del Giroscopio
+  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  bool _isGyroscopeActive = false;
+  bool get isGyroscopeActive => _isGyroscopeActive;
+  String _lastGyroCommand = 'C';
+  
+  // Valores del acelerómetro para visualización
+  double _x = 0, _y = 0;
+  double get x => _x;
+  double get y => _y;
+
+  // Sensibilidad del giroscopio (Umbral)
+  double _gyroscopeThreshold = 2.0;
+  double get gyroscopeThreshold => _gyroscopeThreshold;
+
+  /// Establece el umbral de sensibilidad del giroscopio
+  void setGyroscopeThreshold(double value) {
+    _gyroscopeThreshold = value;
+    notifyListeners();
+  }
+
   /// Alterna entre tema claro y oscuro
   void toggleTheme() {
     _themeMode =
@@ -30,6 +55,81 @@ class AppProvider extends ChangeNotifier {
   Future<bool> checkAndRequestPermissions() async {
     return await _bluetoothService.requestPermissions();
   }
+  
+  /// Verifica permisos de sensores (Giroscopio)
+  Future<bool> checkGyroscopePermissions() async {
+    if (Platform.isAndroid) {
+      // En Android, el acelerómetro/giroscopio estándar no requiere permisos de tiempo de ejecución.
+      // Permission.sensors solicita BODY_SENSORS (ritmo cardíaco, etc.), lo cual no necesitamos.
+      return true;
+    }
+
+    // En iOS sí se requiere permiso (Motion Usage)
+    var status = await Permission.sensors.status;
+    if (!status.isGranted) {
+      status = await Permission.sensors.request();
+    }
+    return status.isGranted;
+  }
+
+  /// Activa/Desactiva el control por giroscopio
+  void setGyroscopeActive(bool active) {
+    if (_isGyroscopeActive == active) return;
+    
+    _isGyroscopeActive = active;
+    if (active) {
+      _startGyroscope();
+    } else {
+      _stopGyroscope();
+    }
+    notifyListeners();
+  }
+
+  void _startGyroscope() {
+    _accelerometerSubscription = accelerometerEventStream().listen((event) {
+      _x = event.x;
+      _y = event.y;
+      notifyListeners(); // Para actualizar UI del giroscopio
+      
+      if (!_isRunning || !isConnected) return;
+      _processAccelerometerData(event);
+    });
+  }
+
+  void _stopGyroscope() {
+    _accelerometerSubscription?.cancel();
+    _accelerometerSubscription = null;
+    if (_isRunning && isConnected) {
+      // sendNavigationCommand('S');
+    }
+  }
+
+  void _processAccelerometerData(AccelerometerEvent event) {
+    // Lógica simple de inclinación
+    // Ajustar umbrales según sea necesario
+    String newCommand = 'C';
+    
+    // Umbral de sensibilidad dinámico
+    final double threshold = _gyroscopeThreshold;
+
+    if (event.y < -threshold) {
+      newCommand = 'F'; // Inclinado hacia adelante (top down)
+    } else if (event.y > threshold) {
+      newCommand = 'B'; // Inclinado hacia atrás (top up)
+    } else if (event.x > threshold) {
+      newCommand = 'L'; // Inclinado a la izquierda
+    } else if (event.x < -threshold) {
+      newCommand = 'R'; // Inclinado a la derecha
+    }
+
+    if (newCommand != _lastGyroCommand) {
+      _lastGyroCommand = newCommand;
+      if (_lastGyroCommand != 'C')
+        sendNavigationCommand(newCommand);
+    }
+  }
+
+  /// Verifica si el Bluetooth está habilitado
 
   /// Verifica si el Bluetooth está habilitado
   Future<bool> isBluetoothEnabled() async {
